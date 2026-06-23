@@ -1,6 +1,13 @@
 from fastapi.testclient import TestClient
+from sqlalchemy import BigInteger
 
+from app.database import ActiveGameRow, ScoreRow
 from app.main import create_app
+
+
+def test_millisecond_timestamp_columns_use_big_integers():
+    assert isinstance(ScoreRow.__table__.c.created_at.type, BigInteger)
+    assert isinstance(ActiveGameRow.__table__.c.updated_at.type, BigInteger)
 
 
 def test_data_persists_across_app_instances(database_url):

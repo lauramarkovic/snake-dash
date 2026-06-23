@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import JSON, ForeignKey, Integer, String, create_engine
+from sqlalchemy import JSON, BigInteger, ForeignKey, Integer, String, create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import (
@@ -47,7 +47,7 @@ class ScoreRow(Base):
     )
     mode: Mapped[str] = mapped_column(String(32), index=True)
     score: Mapped[int] = mapped_column(Integer)
-    created_at: Mapped[int] = mapped_column(Integer, index=True)
+    created_at: Mapped[int] = mapped_column(BigInteger, index=True)
 
 
 class ActiveGameRow(Base):
@@ -59,7 +59,7 @@ class ActiveGameRow(Base):
     )
     mode: Mapped[str] = mapped_column(String(32), index=True)
     state: Mapped[dict[str, object]] = mapped_column(JSON)
-    updated_at: Mapped[int] = mapped_column(Integer, index=True)
+    updated_at: Mapped[int] = mapped_column(BigInteger, index=True)
 
 
 def create_database_engine(database_url: str) -> Engine:

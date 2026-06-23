@@ -46,6 +46,7 @@ class DatabaseStore:
                     ),
                 ]
             )
+            session.flush()
 
             timestamp = now_ms()
             session.add_all(
