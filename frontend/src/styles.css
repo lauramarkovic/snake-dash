@@ -221,9 +221,44 @@
     margin-inline: auto;
   }
 
+  .milestone-pop {
+    animation: milestone-pop 1.8s ease-out both;
+  }
+
+  .reduce-game-motion *,
+  .reduce-game-motion *::before,
+  .reduce-game-motion *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   @media (min-width: 640px) {
     .page-shell {
       padding-inline: 1.5rem;
     }
+  }
+}
+
+@keyframes milestone-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(1rem) scale(0.82);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateY(0) scale(1.08);
+  }
+
+  72% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-1rem) scale(0.96);
   }
 }
