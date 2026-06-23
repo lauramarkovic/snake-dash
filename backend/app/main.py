@@ -1,8 +1,8 @@
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-import httpx
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,10 +18,18 @@ DEV_ORIGIN_REGEX = (
 )
 
 
+def environment_flag(name: str, *, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def create_app(
     *,
     seed: bool = True,
     database_url: str | None = None,
+    frontend_directory: str | Path | None = None,
 ) -> FastAPI:
     resolved_database_url = database_url or os.getenv(
         "DATABASE_URL", DEFAULT_DATABASE_URL
@@ -39,6 +47,7 @@ def create_app(
         title="Snake Arena API",
         version="1.0.0",
         description="Database-backed backend for Snake Arena.",
+        debug=environment_flag("DEBUG"),
         lifespan=lifespan,
     )
     app.state.database = database
@@ -93,28 +102,12 @@ def create_app(
     api.include_router(games.router)
     app.mount("/api", api)
 
-    ssr_url = os.getenv("SSR_URL", "").rstrip("/")
-    if ssr_url:
-        _hop_by_hop = frozenset({
-            "connection", "keep-alive", "proxy-authenticate",
-            "proxy-authorization", "te", "trailers",
-            "transfer-encoding", "upgrade", "host",
-        })
-
-        @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
-        async def proxy_to_ssr(path: str, request: Request) -> Response:
-            target = f"{ssr_url}/{path}"
-            if request.url.query:
-                target = f"{target}?{request.url.query}"
-            headers = {k: v for k, v in request.headers.items()
-                       if k.lower() not in _hop_by_hop}
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                r = await client.request(method=request.method, url=target,
-                                         headers=headers)
-            response_headers = {k: v for k, v in r.headers.items()
-                                 if k.lower() not in _hop_by_hop}
-            return Response(content=r.content, status_code=r.status_code,
-                            headers=response_headers)
+    configured_frontend = frontend_directory or os.getenv("FRONTEND_DIST")
+    if configured_frontend:
+        frontend_path = Path(configured_frontend)
+        if not frontend_path.is_dir():
+            raise RuntimeError(f"Frontend directory does not exist: {frontend_path}")
+        app.frontend("/", directory=frontend_path, fallback="index.html")
 
     return app
 

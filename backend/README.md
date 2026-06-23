@@ -53,3 +53,21 @@ Authorization: Bearer <token>
 ```bash
 uv run pytest
 ```
+
+## Docker
+
+Build the three-stage image from the repository root:
+
+```bash
+docker build -f backend/Dockerfile -t snake-arena .
+```
+
+Run the Python server with the database and debug settings supplied at runtime:
+
+```bash
+docker run -it \
+    -p 8000:8000 \
+    -e DATABASE_URL=sqlite:///./snake.db \
+    -e DEBUG=true \
+    snake-arena
+```
