@@ -3,11 +3,12 @@ import { useEffect, useState } from "react";
 import { SnakeBoard } from "@/components/SnakeBoard";
 import { getService } from "@/services";
 import type { ActiveGame } from "@/services/types";
-import { ArrowLeft, Eye, Radio, Ruler, Trophy } from "lucide-react";
+import { ArrowLeft, Eye, Gauge, Radio, RouteIcon, Ruler, Trophy, Utensils } from "lucide-react";
 import { ArenaPanel } from "@/components/ArenaPanel";
 import { StatCard } from "@/components/StatCard";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
+import { getSpeedLevel, getTickMs } from "@/lib/game-feel";
 
 export const Route = createFileRoute("/watch/$gameId")({
   head: () => ({ meta: [{ title: "Watching game — Snake Dash" }] }),
@@ -82,6 +83,40 @@ function WatchPage() {
             tone="neon"
           />
           <StatCard label="Length" value={game.state.snake.length} icon={Ruler} tone="electric" />
+          <StatCard
+            label="Food eaten"
+            value={Math.max(0, game.state.snake.length - 3)}
+            icon={Utensils}
+          />
+          <StatCard label="Speed" value={`Level ${getSpeedLevel(game.state.score)}`} icon={Gauge} />
+          <ArenaPanel className="col-span-2 p-5 lg:col-span-1">
+            <p className="eyebrow">Run telemetry</p>
+            <div className="mt-4 space-y-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <RouteIcon className="size-3.5 text-electric" /> Moves
+                </span>
+                <strong className="font-display text-foreground">
+                  {game.state.tick.toLocaleString()}
+                </strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Current interval</span>
+                <strong className="font-display text-foreground">
+                  {getTickMs(game.state.score)}ms
+                </strong>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>Board coverage</span>
+                <strong className="font-display text-foreground">
+                  {Math.round(
+                    (game.state.snake.length / (game.state.width * game.state.height)) * 100,
+                  )}
+                  %
+                </strong>
+              </div>
+            </div>
+          </ArenaPanel>
         </div>
       </div>
     </section>

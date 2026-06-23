@@ -1,20 +1,34 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { getService } from "@/services";
-import type { ActiveGame } from "@/services/types";
-import { Activity, ArrowRight, Eye, Gamepad2, Radio, Trophy } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Activity, ArrowRight, Eye, Gamepad2, Radio, Ruler, Trophy } from "lucide-react";
 import { ArenaPanel } from "@/components/ArenaPanel";
 import { EmptyState } from "@/components/EmptyState";
+import { MiniSnakeBoard } from "@/components/MiniSnakeBoard";
 import { Button } from "@/components/ui/button";
+import { getService } from "@/services";
+import type { ActiveGame } from "@/services/types";
 
 export const Route = createFileRoute("/watch")({
   head: () => ({ meta: [{ title: "Watch — Snake Dash" }] }),
   component: WatchListPage,
 });
 
+type SortMode = "score" | "length";
+
 function WatchListPage() {
   const [games, setGames] = useState<ActiveGame[]>([]);
+  const [sortMode, setSortMode] = useState<SortMode>("score");
   useEffect(() => getService().subscribeActiveGames(setGames), []);
+
+  const sortedGames = useMemo(
+    () =>
+      [...games].sort((left, right) =>
+        sortMode === "score"
+          ? right.state.score - left.state.score
+          : right.state.snake.length - left.state.snake.length,
+      ),
+    [games, sortMode],
+  );
 
   return (
     <section className="page-shell space-y-6">
@@ -23,13 +37,35 @@ function WatchListPage() {
           <p className="eyebrow">Live feed</p>
           <h1 className="font-display mt-2 text-3xl font-black">Active runs</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Watch players chase their next high score in real time.
+            Preview the grid, compare live stats, and jump into any active run.
           </p>
         </div>
         <div className="flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-neon">
           <Radio className="size-3.5" /> {games.length} live
         </div>
       </header>
+
+      {games.length > 1 && (
+        <div className="flex justify-end">
+          <div className="flex rounded-xl border border-border bg-card/50 p-1">
+            {(["score", "length"] as const).map((sort) => (
+              <button
+                key={sort}
+                type="button"
+                onClick={() => setSortMode(sort)}
+                className={`rounded-lg px-3 py-2 text-xs font-semibold capitalize ${
+                  sortMode === sort
+                    ? "bg-secondary text-neon"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {sort}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {games.length === 0 ? (
         <ArenaPanel>
           <EmptyState
@@ -46,23 +82,24 @@ function WatchListPage() {
           />
         </ArenaPanel>
       ) : (
-        <ul className="grid gap-4 md:grid-cols-2">
-          {games.map((g) => (
-            <li key={g.id}>
+        <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {sortedGames.map((game) => (
+            <li key={game.id}>
               <Link
                 to="/watch/$gameId"
-                params={{ gameId: g.id }}
-                className="arena-panel group block rounded-2xl p-5 transition-all hover:-translate-y-0.5 hover:border-electric/35"
+                params={{ gameId: game.id }}
+                className="arena-panel group block h-full rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:border-electric/35"
               >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-11 place-items-center rounded-xl border border-electric/20 bg-electric/10 font-bold text-electric">
-                      {g.username.slice(0, 1).toUpperCase()}
+                <MiniSnakeBoard state={game.state} />
+                <div className="mt-4 flex items-start justify-between">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-electric/20 bg-electric/10 font-bold text-electric">
+                      {game.username.slice(0, 1).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-semibold">{g.username}</p>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{game.username}</p>
                       <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Activity className="size-3" /> {g.mode === "walls" ? "Classic" : "Wrap"}{" "}
+                        <Activity className="size-3" /> {game.mode === "walls" ? "Classic" : "Wrap"}{" "}
                         mode
                       </p>
                     </div>
@@ -71,24 +108,37 @@ function WatchListPage() {
                     <span className="status-dot" /> Live
                   </span>
                 </div>
-                <div className="mt-5 flex items-end justify-between border-t border-border/60 pt-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                      Current score
-                    </p>
-                    <p className="font-display neon-text mt-1 text-2xl font-black">
-                      {g.state.score.toLocaleString()}
-                    </p>
-                  </div>
-                  <span className="flex items-center gap-1 text-sm font-semibold text-electric transition-transform group-hover:translate-x-1">
-                    Watch <ArrowRight className="size-4" />
-                  </span>
+                <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border/60 pt-4">
+                  <LiveStat icon={Trophy} label="Score" value={game.state.score} />
+                  <LiveStat icon={Ruler} label="Length" value={game.state.snake.length} />
                 </div>
+                <span className="mt-4 flex items-center justify-end gap-1 text-sm font-semibold text-electric transition-transform group-hover:translate-x-1">
+                  Watch live <ArrowRight className="size-4" />
+                </span>
               </Link>
             </li>
           ))}
         </ul>
       )}
     </section>
+  );
+}
+
+function LiveStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Trophy;
+  label: string;
+  value: number;
+}) {
+  return (
+    <div className="rounded-lg bg-background/35 p-2.5">
+      <p className="flex items-center gap-1 text-[0.625rem] uppercase tracking-wider text-muted-foreground">
+        <Icon className="size-3" /> {label}
+      </p>
+      <p className="font-display mt-1 font-bold">{value.toLocaleString()}</p>
+    </div>
   );
 }

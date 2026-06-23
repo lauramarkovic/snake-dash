@@ -2,15 +2,20 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   AudioLines,
+  CheckCircle2,
   Clock3,
   Gauge,
+  LockKeyhole,
   Maximize2,
+  Medal,
   Minimize2,
   Pause,
   Play,
   RotateCcw,
   Ruler,
+  Share2,
   Sparkles,
+  Target,
   Trophy,
   Volume2,
   VolumeX,
@@ -44,6 +49,15 @@ import {
   type Mode,
 } from "@/lib/snake-engine";
 import { useRequireAuth } from "@/lib/use-require-auth";
+import {
+  achievementCatalog,
+  achievementIdsForRun,
+  getDailyChallenge,
+  readAchievementIds,
+  readDailyCompletions,
+  saveAchievementIds,
+  saveDailyCompletions,
+} from "@/lib/social-progress";
 import { getService } from "@/services";
 
 export const Route = createFileRoute("/play")({
@@ -87,9 +101,8 @@ function PlayPage() {
 
 function Game() {
   const { user } = useAuth();
-  const initialState = useRef(createGame("walls"));
   const [mode, setMode] = useState<Mode>("walls");
-  const [state, setState] = useState<GameState>(initialState.current);
+  const [state, setState] = useState<GameState>(() => createGame("walls"));
   const [running, setRunning] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -97,15 +110,19 @@ function Game() {
   const [newBest, setNewBest] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [combo, setCombo] = useState(0);
+  const [maxCombo, setMaxCombo] = useState(0);
   const [comboExpiresAt, setComboExpiresAt] = useState(0);
   const [boardEvent, setBoardEvent] = useState<BoardEvent | null>(null);
   const [milestone, setMilestone] = useState<number | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [preferences, setPreferences] = useState<GamePreferences>(readPreferences);
+  const [achievementIds, setAchievementIds] = useState(readAchievementIds);
+  const [dailyCompletions, setDailyCompletions] = useState(readDailyCompletions);
+  const [shareStatus, setShareStatus] = useState("");
   const submittedRef = useRef(false);
   const gameIdRef = useRef<string | null>(null);
   const sessionRef = useRef(0);
-  const stateRef = useRef(initialState.current);
+  const stateRef = useRef(state);
   const lastEatAtRef = useRef<number | null>(null);
   const eventIdRef = useRef(0);
   const audioRef = useRef(new GameAudio());
@@ -113,6 +130,9 @@ function Game() {
   const tickMs = getTickMs(state.score);
   const speedLevel = getSpeedLevel(state.score);
   const comboRemaining = combo > 1 ? Math.max(0, comboExpiresAt - Date.now()) : 0;
+  const dailyChallenge = getDailyChallenge();
+  const dailyCompleted = dailyCompletions.has(dailyChallenge.id);
+  const achievements = achievementCatalog(achievementIds);
 
   const playSound = useCallback(
     (sound: GameSound) => {
@@ -137,10 +157,12 @@ function Game() {
 
   const resetFeel = useCallback(() => {
     setCombo(0);
+    setMaxCombo(0);
     setComboExpiresAt(0);
     setBoardEvent(null);
     setMilestone(null);
     setElapsedMs(0);
+    setShareStatus("");
     lastEatAtRef.current = null;
   }, []);
 
@@ -216,6 +238,7 @@ function Game() {
         next = { ...next, score: nextScore };
         lastEatAtRef.current = now;
         setCombo(nextCombo);
+        setMaxCombo((value) => Math.max(value, nextCombo));
         setComboExpiresAt(now + COMBO_WINDOW_MS);
         setBoardEvent({
           id: ++eventIdRef.current,
@@ -273,7 +296,45 @@ function Game() {
       setNewBest(true);
       window.localStorage.setItem(bestScoreKey(mode), String(nextBest));
     }
-  }, [bestScore, mode, state.alive, state.score]);
+
+    const completedDaily = mode === dailyChallenge.mode && state.score >= dailyChallenge.target;
+    if (completedDaily && !dailyCompleted) {
+      const nextDailyCompletions = new Set(dailyCompletions);
+      nextDailyCompletions.add(dailyChallenge.id);
+      setDailyCompletions(nextDailyCompletions);
+      saveDailyCompletions(nextDailyCompletions);
+    }
+
+    const nextAchievementIds = new Set(achievementIds);
+    achievementIdsForRun(
+      {
+        score: state.score,
+        length: state.snake.length,
+        mode,
+        maxCombo,
+        speedLevel,
+      },
+      completedDaily || dailyCompleted,
+    ).forEach((id) => nextAchievementIds.add(id));
+    if (nextAchievementIds.size !== achievementIds.size) {
+      setAchievementIds(nextAchievementIds);
+      saveAchievementIds(nextAchievementIds);
+    }
+  }, [
+    achievementIds,
+    bestScore,
+    dailyChallenge.id,
+    dailyChallenge.mode,
+    dailyChallenge.target,
+    dailyCompleted,
+    dailyCompletions,
+    maxCombo,
+    mode,
+    speedLevel,
+    state.alive,
+    state.score,
+    state.snake.length,
+  ]);
 
   useEffect(() => {
     window.localStorage.setItem("snake-dash-preferences", JSON.stringify(preferences));
@@ -337,6 +398,22 @@ function Game() {
     },
     [endPublishedGame],
   );
+
+  const shareResult = useCallback(async () => {
+    const text = `I scored ${state.score.toLocaleString()} in ${mode === "walls" ? "Classic" : "Wrap"} mode on Snake Dash. Can you beat it?`;
+    const shareData = { title: "Snake Dash result", text, url: window.location.origin };
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        setShareStatus("Shared");
+      } else {
+        await navigator.clipboard.writeText(`${text} ${window.location.origin}`);
+        setShareStatus("Copied");
+      }
+    } catch {
+      setShareStatus("");
+    }
+  }, [mode, state.score]);
 
   return (
     <section className="page-shell space-y-6">
@@ -442,6 +519,9 @@ function Game() {
                   <Button variant="outline" size="lg" onClick={() => selectMode(mode)}>
                     Back to ready
                   </Button>
+                  <Button variant="outline" size="lg" onClick={shareResult}>
+                    <Share2 /> {shareStatus || "Share result"}
+                  </Button>
                 </div>
               </BoardOverlay>
             )}
@@ -475,6 +555,80 @@ function Game() {
             <StatCard label="Best score" value={bestScore.toLocaleString()} icon={Sparkles} />
             <StatCard label="Speed" value={`Level ${speedLevel}`} icon={Gauge} />
           </div>
+
+          <ArenaPanel className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="eyebrow">Daily challenge</p>
+                <p className="mt-2 text-sm font-bold">{dailyChallenge.title}</p>
+              </div>
+              {dailyCompleted ? (
+                <CheckCircle2 className="size-6 text-neon" />
+              ) : (
+                <Target className="size-6 text-warning" />
+              )}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">
+              {dailyChallenge.description}
+            </p>
+            <Progress
+              value={
+                mode === dailyChallenge.mode
+                  ? Math.min(100, (state.score / dailyChallenge.target) * 100)
+                  : dailyCompleted
+                    ? 100
+                    : 0
+              }
+              className="mt-4"
+            />
+            {!dailyCompleted && mode !== dailyChallenge.mode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-4 w-full"
+                onClick={() => selectMode(dailyChallenge.mode)}
+              >
+                Switch to {dailyChallenge.mode === "walls" ? "Classic" : "Wrap"}
+              </Button>
+            )}
+          </ArenaPanel>
+
+          <ArenaPanel className="p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Medal className="size-4 text-electric" />
+                <p className="text-sm font-bold">Achievements</p>
+              </div>
+              <span className="font-display text-xs text-neon">
+                {achievements.filter((achievement) => achievement.unlocked).length}/
+                {achievements.length}
+              </span>
+            </div>
+            <div className="mt-4 space-y-2">
+              {achievements.map((achievement) => (
+                <div
+                  key={achievement.id}
+                  className={`flex items-start gap-3 rounded-lg border p-3 ${
+                    achievement.unlocked
+                      ? "border-primary/25 bg-primary/8"
+                      : "border-border/60 bg-background/25"
+                  }`}
+                >
+                  {achievement.unlocked ? (
+                    <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-neon" />
+                  ) : (
+                    <LockKeyhole className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="text-xs font-bold">{achievement.title}</p>
+                    <p className="mt-1 text-[0.6875rem] leading-4 text-muted-foreground">
+                      {achievement.description}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ArenaPanel>
 
           <ArenaPanel className="p-5">
             <div className="flex items-center justify-between gap-3">
