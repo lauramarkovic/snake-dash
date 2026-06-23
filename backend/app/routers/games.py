@@ -21,7 +21,11 @@ def sse(event: str, data: object) -> str:
 GameId = Annotated[str, Path(alias="gameId", min_length=1)]
 
 
-@router.get("", response_model=list[ActiveGame], operation_id="listActiveGames")
+@router.get(
+    "/active",
+    response_model=list[ActiveGame],
+    operation_id="listActiveGames",
+)
 async def list_active_games(request: Request) -> list[ActiveGame]:
     return request.app.state.store.list_games()
 

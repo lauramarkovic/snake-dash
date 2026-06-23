@@ -12,6 +12,16 @@ uv run uvicorn main:app --reload
 The API is served under `http://localhost:8000/api`. Interactive docs for the
 mounted API are available at `http://localhost:8000/api/docs`.
 
+Primary endpoints:
+
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/logout`
+- `GET /api/leaderboard`
+- `POST /api/leaderboard`
+- `GET /api/games/active`
+
 Seeded credentials:
 
 - `demo` / `demo`

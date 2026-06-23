@@ -52,7 +52,14 @@ def test_me_and_logout_support_bearer_auth(client):
     ).status_code == 204
     assert client.get(
         "/api/auth/me", headers={"Authorization": token}
-    ).json() is None
+    ).status_code == 401
+
+
+def test_me_requires_authentication(client):
+    response = client.get("/api/auth/me")
+
+    assert response.status_code == 401
+    assert response.json()["error"] == "not_authenticated"
 
 
 def test_duplicate_signup_is_conflict(client):

@@ -10,8 +10,8 @@ router = APIRouter(tags=["Scores"])
 
 
 @router.post(
-    "/scores",
-    status_code=status.HTTP_204_NO_CONTENT,
+    "/leaderboard",
+    status_code=status.HTTP_201_CREATED,
     operation_id="submitScore",
 )
 async def submit_score(

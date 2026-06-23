@@ -13,7 +13,7 @@ GAME_STATE = {
 
 
 def test_active_games_are_seeded_and_sorted(client):
-    response = client.get("/api/games")
+    response = client.get("/api/games/active")
 
     assert response.status_code == 200
     games = response.json()

@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 
-from app.auth import OptionalCurrentUser
+from app.auth import CurrentUser, OptionalCurrentUser
 from app.models import Credentials, ErrorResponse, User
 
 
@@ -20,8 +20,8 @@ def set_auth(response: Response, token: str) -> None:
     )
 
 
-@router.get("/me", response_model=User | None, operation_id="getCurrentUser")
-async def get_current_user(user: OptionalCurrentUser) -> User | None:
+@router.get("/me", response_model=User, operation_id="getCurrentUser")
+async def get_current_user(user: CurrentUser) -> User:
     return user
 
 
