@@ -1,4 +1,4 @@
-.PHONY: install dev backend frontend backend-tests frontend-tests test
+.PHONY: install dev backend frontend backend-tests frontend-tests test test-integration up down
 
 install:
 	cd backend && uv sync
@@ -26,3 +26,9 @@ test: backend-tests frontend-tests
 
 test-integration:
 	cd backend && uv run pytest tests_integration/
+
+up:
+	docker compose up --build
+
+down:
+	docker compose down
