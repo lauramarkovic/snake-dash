@@ -1,7 +1,8 @@
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+import httpx
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -91,6 +92,30 @@ def create_app(
     api.include_router(scores.router)
     api.include_router(games.router)
     app.mount("/api", api)
+
+    ssr_url = os.getenv("SSR_URL", "").rstrip("/")
+    if ssr_url:
+        _hop_by_hop = frozenset({
+            "connection", "keep-alive", "proxy-authenticate",
+            "proxy-authorization", "te", "trailers",
+            "transfer-encoding", "upgrade", "host",
+        })
+
+        @app.api_route("/{path:path}", methods=["GET", "HEAD"], include_in_schema=False)
+        async def proxy_to_ssr(path: str, request: Request) -> Response:
+            target = f"{ssr_url}/{path}"
+            if request.url.query:
+                target = f"{target}?{request.url.query}"
+            headers = {k: v for k, v in request.headers.items()
+                       if k.lower() not in _hop_by_hop}
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                r = await client.request(method=request.method, url=target,
+                                         headers=headers)
+            response_headers = {k: v for k, v in r.headers.items()
+                                 if k.lower() not in _hop_by_hop}
+            return Response(content=r.content, status_code=r.status_code,
+                            headers=response_headers)
+
     return app
 
 

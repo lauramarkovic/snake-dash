@@ -1,0 +1,13 @@
+**/.git
+**/.venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+frontend/dist
+frontend/.output
+frontend/package-lock.json
+backend/snake.db
+backend/snake_dash.db
+backend/.pytest_cache
+backend/tests
+backend/tests_integration
