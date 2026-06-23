@@ -82,7 +82,7 @@ async def subscribe_game(game_id: GameId, request: Request) -> StreamingResponse
         store = request.app.state.store
         version = store.games_version
         while True:
-            game = store.games.get(game_id)
+            game = store.get_game(game_id)
             data = game.model_dump(by_alias=True, mode="json") if game else None
             yield sse("game", data)
             try:
@@ -106,7 +106,7 @@ async def subscribe_game(game_id: GameId, request: Request) -> StreamingResponse
     responses={404: {"model": ErrorResponse}},
 )
 async def get_active_game(game_id: GameId, request: Request) -> ActiveGame:
-    game = request.app.state.store.games.get(game_id)
+    game = request.app.state.store.get_game(game_id)
     if game is None:
         raise HTTPException(
             status_code=404,
@@ -121,7 +121,7 @@ async def get_active_game(game_id: GameId, request: Request) -> ActiveGame:
     operation_id="endGame",
 )
 async def end_game(game_id: GameId, user: CurrentUser, request: Request) -> None:
-    game = request.app.state.store.games.get(game_id)
+    game = request.app.state.store.get_game(game_id)
     if game is None:
         return
     if game.user_id != user.id:

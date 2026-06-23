@@ -1,3 +1,8 @@
+from sqlalchemy import select
+
+from app.database import UserRow
+
+
 def test_login_returns_user_and_bearer_token(client):
     response = client.post(
         "/api/auth/login", json={"username": "demo", "password": "demo"}
@@ -26,10 +31,14 @@ def test_signup_hashes_password_and_authenticates_user(client):
         "/api/auth/signup", json={"username": "new-player", "password": "secret"}
     )
     assert response.status_code == 201
-    user_id = response.json()["id"]
-    record = client.app.state.store.users[user_id]
-    assert record.password_hash != "secret"
-    assert record.password_hash.startswith("scrypt$")
+    with client.app.state.database.session() as session:
+        password_hash = session.scalar(
+            select(UserRow.password_hash).where(
+                UserRow.id == response.json()["id"]
+            )
+        )
+    assert password_hash != "secret"
+    assert password_hash.startswith("scrypt$")
 
     login = client.post(
         "/api/auth/login", json={"username": "new-player", "password": "secret"}

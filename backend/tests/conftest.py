@@ -5,8 +5,13 @@ from app.main import create_app
 
 
 @fixture
-def client() -> TestClient:
-    with TestClient(create_app()) as test_client:
+def database_url(tmp_path) -> str:
+    return f"sqlite:///{tmp_path / 'test.db'}"
+
+
+@fixture
+def client(database_url: str) -> TestClient:
+    with TestClient(create_app(database_url=database_url)) as test_client:
         yield test_client
 
 

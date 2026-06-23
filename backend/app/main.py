@@ -1,23 +1,51 @@
+import os
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.database import DEFAULT_DATABASE_URL, Database
 from app.routers import auth, games, scores
-from app.store import InMemoryStore
+from app.store import DatabaseStore
 
 
-def create_app(*, seed: bool = True) -> FastAPI:
+DEV_ORIGIN_REGEX = (
+    r"^https?://(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$"
+    r"|^https://(?:[a-z0-9-]+\.)*app\.github\.dev$"
+)
+
+
+def create_app(
+    *,
+    seed: bool = True,
+    database_url: str | None = None,
+) -> FastAPI:
+    resolved_database_url = database_url or os.getenv(
+        "DATABASE_URL", DEFAULT_DATABASE_URL
+    )
+    database = Database(resolved_database_url)
+    database.create_tables()
+    store = DatabaseStore(database, seed=seed)
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        database.close()
+
     app = FastAPI(
         title="Snake Arena API",
         version="1.0.0",
-        description="In-memory backend for Snake Arena.",
+        description="Database-backed backend for Snake Arena.",
+        lifespan=lifespan,
     )
-    store = InMemoryStore(seed=seed)
+    app.state.database = database
     app.state.store = store
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:3000", "http://localhost:5173"],
+        allow_origin_regex=DEV_ORIGIN_REGEX,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -53,8 +81,9 @@ def create_app(*, seed: bool = True) -> FastAPI:
     api = FastAPI(
         title="Snake Arena API",
         version="1.0.0",
-        description="In-memory backend for Snake Arena.",
+        description="Database-backed backend for Snake Arena.",
     )
+    api.state.database = database
     api.state.store = store
     api.add_exception_handler(HTTPException, http_exception_handler)
     api.add_exception_handler(RequestValidationError, validation_exception_handler)

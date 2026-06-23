@@ -1,12 +1,25 @@
 # Snake Arena backend
 
-FastAPI implementation of `../openapi.yaml` using a seeded in-memory store.
+FastAPI implementation of `../openapi.yaml` using SQLAlchemy. SQLite is used
+by default, while the data layer remains portable to other SQL databases.
 
 ## Run
 
 ```bash
 uv sync
 uv run uvicorn main:app --reload
+```
+
+Set `DATABASE_URL` to choose the database. The default is:
+
+```text
+sqlite:///./snake_dash.db
+```
+
+For example:
+
+```bash
+DATABASE_URL=sqlite:///./local.db uv run uvicorn main:app --reload
 ```
 
 The API is served under `http://localhost:8000/api`. Interactive docs for the

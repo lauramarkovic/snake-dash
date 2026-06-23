@@ -1,9 +1,12 @@
 import asyncio
 import time
 import uuid
-from dataclasses import dataclass
+
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.auth import create_token, hash_password, verify_password
+from app.database import ActiveGameRow, Database, ScoreRow, TokenRow, UserRow
 from app.models import ActiveGame, GameState, Mode, ScoreEntry, User
 
 
@@ -11,140 +14,245 @@ def now_ms() -> int:
     return int(time.time() * 1000)
 
 
-@dataclass(slots=True)
-class UserRecord:
-    user: User
-    password_hash: str
-
-
-class InMemoryStore:
-    def __init__(self, *, seed: bool = True) -> None:
-        self.users: dict[str, UserRecord] = {}
-        self.user_ids_by_name: dict[str, str] = {}
-        self.tokens: dict[str, str] = {}
-        self.scores: list[ScoreEntry] = []
-        self.games: dict[str, ActiveGame] = {}
-        self.game_ids_by_user: dict[str, str] = {}
+class DatabaseStore:
+    def __init__(self, database: Database, *, seed: bool = True) -> None:
+        self.database = database
         self._games_version = 0
         self._games_changed = asyncio.Condition()
         if seed:
             self.seed()
 
     def seed(self) -> None:
-        demo = self._add_user("u-demo", "demo", "demo")
-        ada = self._add_user("u-ada", "ada", "ada")
-        lin = self._add_user("u-lin", "lin", "snake")
-        timestamp = now_ms()
-        self.scores.extend(
-            [
-                ScoreEntry(id="s-1", userId=ada.id, username=ada.username, mode=Mode.WALLS, score=180, createdAt=timestamp - 60_000),
-                ScoreEntry(id="s-2", userId=demo.id, username=demo.username, mode=Mode.WALLS, score=120, createdAt=timestamp - 50_000),
-                ScoreEntry(id="s-3", userId=lin.id, username=lin.username, mode=Mode.WALLS, score=90, createdAt=timestamp - 40_000),
-                ScoreEntry(id="s-4", userId=ada.id, username=ada.username, mode=Mode.PASSTHROUGH, score=240, createdAt=timestamp - 30_000),
-                ScoreEntry(id="s-5", userId=demo.id, username=demo.username, mode=Mode.PASSTHROUGH, score=150, createdAt=timestamp - 20_000),
-            ]
-        )
-        self._seed_game(ada, Mode.PASSTHROUGH, timestamp - 1_000, 70)
-        self._seed_game(lin, Mode.WALLS, timestamp - 2_000, 40)
+        with self.database.session() as session:
+            if session.get(UserRow, "u-demo") is not None:
+                return
 
-    def _add_user(self, user_id: str, username: str, password: str) -> User:
-        user = User(id=user_id, username=username)
-        self.users[user_id] = UserRecord(user, hash_password(password))
-        self.user_ids_by_name[username] = user_id
-        return user
+            session.add_all(
+                [
+                    UserRow(
+                        id="u-demo",
+                        username="demo",
+                        password_hash=hash_password("demo"),
+                    ),
+                    UserRow(
+                        id="u-ada",
+                        username="ada",
+                        password_hash=hash_password("ada"),
+                    ),
+                    UserRow(
+                        id="u-lin",
+                        username="lin",
+                        password_hash=hash_password("snake"),
+                    ),
+                ]
+            )
 
-    def _seed_game(
-        self, user: User, mode: Mode, updated_at: int, score: int
-    ) -> None:
-        game_id = f"g-{user.id}"
-        game = ActiveGame(
-            id=game_id,
-            userId=user.id,
-            username=user.username,
+            timestamp = now_ms()
+            session.add_all(
+                [
+                    ScoreRow(
+                        id="s-1",
+                        user_id="u-ada",
+                        mode=Mode.WALLS,
+                        score=180,
+                        created_at=timestamp - 60_000,
+                    ),
+                    ScoreRow(
+                        id="s-2",
+                        user_id="u-demo",
+                        mode=Mode.WALLS,
+                        score=120,
+                        created_at=timestamp - 50_000,
+                    ),
+                    ScoreRow(
+                        id="s-3",
+                        user_id="u-lin",
+                        mode=Mode.WALLS,
+                        score=90,
+                        created_at=timestamp - 40_000,
+                    ),
+                    ScoreRow(
+                        id="s-4",
+                        user_id="u-ada",
+                        mode=Mode.PASSTHROUGH,
+                        score=240,
+                        created_at=timestamp - 30_000,
+                    ),
+                    ScoreRow(
+                        id="s-5",
+                        user_id="u-demo",
+                        mode=Mode.PASSTHROUGH,
+                        score=150,
+                        created_at=timestamp - 20_000,
+                    ),
+                    self._seed_game_row(
+                        "u-ada", Mode.PASSTHROUGH, timestamp - 1_000, 70
+                    ),
+                    self._seed_game_row(
+                        "u-lin", Mode.WALLS, timestamp - 2_000, 40
+                    ),
+                ]
+            )
+            session.commit()
+
+    @staticmethod
+    def _seed_game_row(
+        user_id: str, mode: Mode, updated_at: int, score: int
+    ) -> ActiveGameRow:
+        state = GameState(
             mode=mode,
-            state=GameState(
-                mode=mode,
-                width=20,
-                height=20,
-                snake=[{"x": 10, "y": 10}, {"x": 9, "y": 10}, {"x": 8, "y": 10}],
-                dir="right",
-                pendingDir="right",
-                food={"x": 4, "y": 7},
-                score=score,
-                alive=True,
-                tick=score // 10,
-            ),
-            updatedAt=updated_at,
+            width=20,
+            height=20,
+            snake=[
+                {"x": 10, "y": 10},
+                {"x": 9, "y": 10},
+                {"x": 8, "y": 10},
+            ],
+            dir="right",
+            pendingDir="right",
+            food={"x": 4, "y": 7},
+            score=score,
+            alive=True,
+            tick=score // 10,
         )
-        self.games[game_id] = game
-        self.game_ids_by_user[user.id] = game_id
+        return ActiveGameRow(
+            id=f"g-{user_id}",
+            user_id=user_id,
+            mode=mode,
+            state=state.model_dump(by_alias=True, mode="json"),
+            updated_at=updated_at,
+        )
 
     def authenticate(self, username: str, password: str) -> User | None:
-        user_id = self.user_ids_by_name.get(username)
-        record = self.users.get(user_id) if user_id else None
-        if record is None or not verify_password(password, record.password_hash):
+        with self.database.session() as session:
+            row = session.scalar(
+                select(UserRow).where(UserRow.username == username)
+            )
+        if row is None or not verify_password(password, row.password_hash):
             return None
-        return record.user
+        return self._user(row)
 
     def signup(self, username: str, password: str) -> User | None:
-        if username in self.user_ids_by_name:
+        row = UserRow(
+            id=f"u-{uuid.uuid4().hex}",
+            username=username,
+            password_hash=hash_password(password),
+        )
+        try:
+            with self.database.session() as session:
+                session.add(row)
+                session.commit()
+        except IntegrityError:
             return None
-        return self._add_user(f"u-{uuid.uuid4().hex}", username, password)
+        return self._user(row)
 
     def issue_token(self, user_id: str) -> str:
         token = create_token()
-        self.tokens[token] = user_id
+        with self.database.session() as session:
+            session.add(TokenRow(token=token, user_id=user_id))
+            session.commit()
         return token
 
     def revoke_token(self, token: str) -> None:
-        self.tokens.pop(token, None)
+        with self.database.session() as session:
+            row = session.get(TokenRow, token)
+            if row is not None:
+                session.delete(row)
+                session.commit()
 
     def get_user_for_token(self, token: str) -> User | None:
-        user_id = self.tokens.get(token)
-        record = self.users.get(user_id) if user_id else None
-        return record.user if record else None
+        with self.database.session() as session:
+            row = session.scalar(
+                select(UserRow)
+                .join(TokenRow, TokenRow.user_id == UserRow.id)
+                .where(TokenRow.token == token)
+            )
+        return self._user(row) if row else None
 
     def add_score(self, user: User, mode: Mode, score: int) -> None:
-        self.scores.append(
-            ScoreEntry(
-                id=f"s-{uuid.uuid4().hex}",
-                userId=user.id,
-                username=user.username,
-                mode=mode,
-                score=score,
-                createdAt=now_ms(),
+        with self.database.session() as session:
+            session.add(
+                ScoreRow(
+                    id=f"s-{uuid.uuid4().hex}",
+                    user_id=user.id,
+                    mode=mode,
+                    score=score,
+                    created_at=now_ms(),
+                )
             )
-        )
+            session.commit()
 
     def leaderboard(self, mode: Mode, limit: int) -> list[ScoreEntry]:
-        matching = (score for score in self.scores if score.mode == mode)
-        return sorted(
-            matching, key=lambda score: (-score.score, score.created_at)
-        )[:limit]
+        with self.database.session() as session:
+            rows = session.execute(
+                select(ScoreRow, UserRow.username)
+                .join(UserRow, UserRow.id == ScoreRow.user_id)
+                .where(ScoreRow.mode == mode)
+                .order_by(ScoreRow.score.desc(), ScoreRow.created_at)
+                .limit(limit)
+            ).all()
+        return [
+            ScoreEntry(
+                id=row.id,
+                userId=row.user_id,
+                username=username,
+                mode=row.mode,
+                score=row.score,
+                createdAt=row.created_at,
+            )
+            for row, username in rows
+        ]
 
     def list_games(self) -> list[ActiveGame]:
-        return sorted(
-            self.games.values(), key=lambda game: game.updated_at, reverse=True
-        )
+        with self.database.session() as session:
+            rows = session.execute(
+                select(ActiveGameRow, UserRow.username)
+                .join(UserRow, UserRow.id == ActiveGameRow.user_id)
+                .order_by(ActiveGameRow.updated_at.desc())
+            ).all()
+        return [self._game(row, username) for row, username in rows]
+
+    def get_game(self, game_id: str) -> ActiveGame | None:
+        with self.database.session() as session:
+            result = session.execute(
+                select(ActiveGameRow, UserRow.username)
+                .join(UserRow, UserRow.id == ActiveGameRow.user_id)
+                .where(ActiveGameRow.id == game_id)
+            ).one_or_none()
+        return self._game(*result) if result else None
 
     async def publish_game(self, user: User, state: GameState) -> str:
-        game_id = self.game_ids_by_user.get(user.id) or f"g-{uuid.uuid4().hex}"
-        self.games[game_id] = ActiveGame(
-            id=game_id,
-            userId=user.id,
-            username=user.username,
-            mode=state.mode,
-            state=state,
-            updatedAt=now_ms(),
-        )
-        self.game_ids_by_user[user.id] = game_id
+        with self.database.session() as session:
+            row = session.scalar(
+                select(ActiveGameRow).where(ActiveGameRow.user_id == user.id)
+            )
+            if row is None:
+                row = ActiveGameRow(
+                    id=f"g-{uuid.uuid4().hex}",
+                    user_id=user.id,
+                    mode=state.mode,
+                    state=state.model_dump(by_alias=True, mode="json"),
+                    updated_at=now_ms(),
+                )
+                session.add(row)
+            else:
+                row.mode = state.mode
+                row.state = state.model_dump(by_alias=True, mode="json")
+                row.updated_at = now_ms()
+            session.commit()
+            game_id = row.id
         await self.notify_games_changed()
         return game_id
 
     async def end_game(self, game_id: str) -> None:
-        game = self.games.pop(game_id, None)
-        if game:
-            self.game_ids_by_user.pop(game.user_id, None)
+        deleted = False
+        with self.database.session() as session:
+            row = session.get(ActiveGameRow, game_id)
+            if row is not None:
+                session.delete(row)
+                session.commit()
+                deleted = True
+        if deleted:
             await self.notify_games_changed()
 
     async def notify_games_changed(self) -> None:
@@ -162,3 +270,18 @@ class InMemoryStore:
                 lambda: self._games_version != version
             )
             return self._games_version
+
+    @staticmethod
+    def _user(row: UserRow) -> User:
+        return User(id=row.id, username=row.username)
+
+    @staticmethod
+    def _game(row: ActiveGameRow, username: str) -> ActiveGame:
+        return ActiveGame(
+            id=row.id,
+            userId=row.user_id,
+            username=username,
+            mode=row.mode,
+            state=GameState.model_validate(row.state),
+            updatedAt=row.updated_at,
+        )
