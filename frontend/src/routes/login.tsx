@@ -5,12 +5,14 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Activity, ArrowRight, LockKeyhole, UserRound } from "lucide-react";
+import { ArenaPanel } from "@/components/ArenaPanel";
 
 const search = z.object({ redirect: z.string().optional() });
 
 export const Route = createFileRoute("/login")({
   validateSearch: search,
-  head: () => ({ meta: [{ title: "Log in — Snake Arena" }] }),
+  head: () => ({ meta: [{ title: "Log in — Snake Dash" }] }),
   component: LoginPage,
 });
 
@@ -38,23 +40,60 @@ function LoginPage() {
   }
 
   return (
-    <div className="max-w-sm mx-auto px-4 py-16">
-      <h1 className="text-2xl font-bold mb-6">Log in</h1>
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="space-y-1.5">
-          <Label htmlFor="u">Username</Label>
-          <Input id="u" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+    <div className="page-shell flex justify-center py-12 sm:py-20">
+      <ArenaPanel className="w-full max-w-md p-6 sm:p-8">
+        <div className="mb-7">
+          <div className="mb-5 grid size-12 place-items-center rounded-xl border border-primary/30 bg-primary/10 text-neon">
+            <Activity />
+          </div>
+          <p className="eyebrow">Player access</p>
+          <h1 className="font-display mt-2 text-3xl font-black">Welcome back</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Log in to continue your run up the rankings.
+          </p>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="p">Password</Label>
-          <Input id="p" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
-        </div>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Logging in…" : "Log in"}</Button>
-      </form>
-      <p className="text-sm text-muted-foreground mt-4">
-        No account? <Link to="/signup" className="underline">Sign up</Link>
-      </p>
+        <form onSubmit={onSubmit} className="space-y-5">
+          <div className="space-y-1.5">
+            <Label htmlFor="u" className="flex items-center gap-2">
+              <UserRound className="size-3.5 text-electric" /> Username
+            </Label>
+            <Input
+              id="u"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              autoComplete="username"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="p" className="flex items-center gap-2">
+              <LockKeyhole className="size-3.5 text-electric" /> Password
+            </Label>
+            <Input
+              id="p"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" size="lg" className="w-full" disabled={busy}>
+            {busy ? (
+              "Logging in…"
+            ) : (
+              <>
+                Enter arena <ArrowRight />
+              </>
+            )}
+          </Button>
+        </form>
+        <p className="mt-5 text-center text-sm text-muted-foreground">
+          No account?{" "}
+          <Link to="/signup" className="font-semibold text-electric hover:underline">
+            Create one
+          </Link>
+        </p>
+      </ArenaPanel>
     </div>
   );
 }

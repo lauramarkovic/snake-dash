@@ -3,9 +3,14 @@ import { useEffect, useState } from "react";
 import { SnakeBoard } from "@/components/SnakeBoard";
 import { getService } from "@/services";
 import type { ActiveGame } from "@/services/types";
+import { ArrowLeft, Eye, Radio, Ruler, Trophy } from "lucide-react";
+import { ArenaPanel } from "@/components/ArenaPanel";
+import { StatCard } from "@/components/StatCard";
+import { EmptyState } from "@/components/EmptyState";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/watch/$gameId")({
-  head: () => ({ meta: [{ title: "Watching game — Snake Arena" }] }),
+  head: () => ({ meta: [{ title: "Watching game — Snake Dash" }] }),
   component: WatchPage,
 });
 
@@ -17,23 +22,68 @@ function WatchPage() {
 
   if (!game) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-12 text-center space-y-4">
-        <p className="text-muted-foreground">This game has ended or doesn't exist.</p>
-        <Link to="/watch" className="underline">Back to active games</Link>
+      <div className="page-shell">
+        <ArenaPanel>
+          <EmptyState
+            icon={Eye}
+            title="Run unavailable"
+            description="This game has ended or the live feed no longer exists."
+            action={
+              <Button asChild variant="outline">
+                <Link to="/watch">
+                  <ArrowLeft /> All active runs
+                </Link>
+              </Button>
+            }
+          />
+        </ArenaPanel>
       </div>
     );
   }
 
   return (
-    <section className="max-w-3xl mx-auto px-4 py-8 space-y-4">
-      <header className="flex items-center justify-between">
+    <section className="page-shell space-y-6">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{game.username}</h1>
-          <p className="text-sm text-muted-foreground">{game.mode} · score {game.state.score}</p>
+          <p className="eyebrow flex items-center gap-2">
+            <Radio className="size-3.5" /> Live spectator
+          </p>
+          <h1 className="font-display mt-2 text-3xl font-black">{game.username}&apos;s run</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {game.mode === "walls" ? "Classic" : "Wrap"} mode
+          </p>
         </div>
-        <Link to="/watch" className="text-sm underline">All games</Link>
+        <Button asChild variant="outline">
+          <Link to="/watch">
+            <ArrowLeft /> All runs
+          </Link>
+        </Button>
       </header>
-      <SnakeBoard state={game.state} className="rounded-md border" />
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_18rem]">
+        <ArenaPanel className="p-3 sm:p-5">
+          <div className="mb-4 flex items-center justify-between px-1">
+            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neon">
+              <span className="status-dot" /> Live feed
+            </span>
+            <span className="text-xs text-muted-foreground">Tick {game.state.tick}</span>
+          </div>
+          <div className="flex justify-center overflow-auto rounded-xl bg-background/55 p-2 sm:p-4">
+            <SnakeBoard
+              state={game.state}
+              className="max-w-full rounded-lg border border-electric/20"
+            />
+          </div>
+        </ArenaPanel>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
+          <StatCard
+            label="Score"
+            value={game.state.score.toLocaleString()}
+            icon={Trophy}
+            tone="neon"
+          />
+          <StatCard label="Length" value={game.state.snake.length} icon={Ruler} tone="electric" />
+        </div>
+      </div>
     </section>
   );
 }
