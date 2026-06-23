@@ -217,7 +217,7 @@
 
   .game-focus:fullscreen > .arena-panel:first-child {
     width: 100%;
-    max-width: min(78vh, 62rem);
+    max-width: min(92vw, 72rem);
     margin-inline: auto;
   }
 

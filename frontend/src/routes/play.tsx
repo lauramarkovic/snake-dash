@@ -20,6 +20,8 @@ import {
   Volume2,
   VolumeX,
   Waves,
+  ZoomIn,
+  ZoomOut,
   type LucideIcon,
 } from "lucide-react";
 import { SnakeBoard, type BoardEvent } from "@/components/SnakeBoard";
@@ -92,6 +94,10 @@ const DEFAULT_PREFERENCES: GamePreferences = {
   reducedMotion: false,
 };
 
+const MIN_ARENA_SIZE = 320;
+const MAX_ARENA_SIZE = 960;
+const ARENA_STEP = 40;
+
 function PlayPage() {
   const { loading, user } = useRequireAuth();
   if (loading || !user)
@@ -119,6 +125,7 @@ function Game() {
   const [achievementIds, setAchievementIds] = useState(readAchievementIds);
   const [dailyCompletions, setDailyCompletions] = useState(readDailyCompletions);
   const [shareStatus, setShareStatus] = useState("");
+  const [arenaSize, setArenaSize] = useState(readArenaSize);
   const submittedRef = useRef(false);
   const gameIdRef = useRef<string | null>(null);
   const sessionRef = useRef(0);
@@ -342,6 +349,10 @@ function Game() {
   }, [preferences]);
 
   useEffect(() => {
+    window.localStorage.setItem("snake-dash-arena-size", String(arenaSize));
+  }, [arenaSize]);
+
+  useEffect(() => {
     if (milestone === null) return;
     const id = window.setTimeout(() => setMilestone(null), 1_800);
     return () => window.clearTimeout(id);
@@ -363,6 +374,17 @@ function Game() {
     } catch {
       setIsFullscreen(false);
     }
+  }, []);
+
+  const fitArenaToWindow = useCallback(() => {
+    const sidePanelWidth = window.innerWidth >= 1024 ? 336 : 0;
+    const horizontalSpace = window.innerWidth - sidePanelWidth - 96;
+    const verticalSpace = window.innerHeight - (isFullscreen ? 210 : 300);
+    setArenaSize(clampArenaSize(Math.min(horizontalSpace, verticalSpace)));
+  }, [isFullscreen]);
+
+  const resizeArena = useCallback((delta: number) => {
+    setArenaSize((current) => clampArenaSize(current + delta));
   }, []);
 
   useEffect(() => {
@@ -416,7 +438,7 @@ function Game() {
   }, [mode, state.score]);
 
   return (
-    <section className="page-shell space-y-6">
+    <section className="page-shell max-w-[96rem] space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="eyebrow">Player: {user?.username}</p>
@@ -442,7 +464,10 @@ function Game() {
             <HudItem label="Time" value={formatTime(elapsedMs)} />
           </div>
 
-          <div className="relative mx-auto w-full max-w-[50rem] overflow-hidden rounded-xl border border-electric/20 bg-background/55 shadow-[0_0_40px_oklch(0.04_0.02_260/0.5)]">
+          <div
+            className="relative mx-auto aspect-square max-w-full overflow-hidden rounded-xl border border-electric/20 bg-background/55 shadow-[0_0_40px_oklch(0.04_0.02_260/0.5)]"
+            style={{ width: `${arenaSize}px` }}
+          >
             <SnakeBoard
               state={state}
               stepDuration={tickMs}
@@ -535,6 +560,42 @@ function Game() {
                 }
               />
               {runStatus({ state, running, countdown, hasStarted })}
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => resizeArena(-ARENA_STEP)}
+                disabled={arenaSize <= MIN_ARENA_SIZE}
+                aria-label="Zoom arena out"
+              >
+                <ZoomOut />
+              </Button>
+              <div className="w-28 sm:w-40">
+                <Slider
+                  value={[arenaSize]}
+                  min={MIN_ARENA_SIZE}
+                  max={MAX_ARENA_SIZE}
+                  step={ARENA_STEP}
+                  aria-label="Arena size"
+                  onValueChange={([size]) => setArenaSize(size)}
+                />
+              </div>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => resizeArena(ARENA_STEP)}
+                disabled={arenaSize >= MAX_ARENA_SIZE}
+                aria-label="Zoom arena in"
+              >
+                <ZoomIn />
+              </Button>
+              <Button size="sm" variant="outline" onClick={fitArenaToWindow}>
+                Fit window
+              </Button>
+              <span className="min-w-14 text-right font-mono text-xs text-muted-foreground">
+                {arenaSize}px
+              </span>
             </div>
             <Button size="sm" variant="ghost" onClick={toggleFullscreen}>
               {isFullscreen ? <Minimize2 /> : <Maximize2 />}
@@ -844,4 +905,18 @@ function readPreferences(): GamePreferences {
   } catch {
     return DEFAULT_PREFERENCES;
   }
+}
+
+function readArenaSize() {
+  if (typeof window === "undefined") return 800;
+  const stored = Number.parseInt(window.localStorage.getItem("snake-dash-arena-size") ?? "800", 10);
+  return clampArenaSize(stored);
+}
+
+function clampArenaSize(size: number) {
+  if (!Number.isFinite(size)) return 800;
+  return Math.min(
+    MAX_ARENA_SIZE,
+    Math.max(MIN_ARENA_SIZE, Math.round(size / ARENA_STEP) * ARENA_STEP),
+  );
 }
