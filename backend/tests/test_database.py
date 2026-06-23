@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from sqlalchemy import BigInteger
 
-from app.database import ActiveGameRow, ScoreRow
+from app.database import ActiveGameRow, ScoreRow, normalize_database_url
 from app.main import create_app
 
 
@@ -34,3 +34,26 @@ def test_database_url_environment_variable(monkeypatch, tmp_path):
         pass
 
     assert database_path.exists()
+
+
+def test_provider_postgres_urls_use_psycopg_driver():
+    assert (
+        normalize_database_url("postgresql://user:password@host:5432/database")
+        == "postgresql+psycopg://user:password@host:5432/database"
+    )
+    assert (
+        normalize_database_url("postgres://user:password@host:5432/database")
+        == "postgresql+psycopg://user:password@host:5432/database"
+    )
+
+
+def test_explicit_database_driver_is_preserved():
+    database_url = "postgresql+psycopg://user:password@host:5432/database"
+    assert normalize_database_url(database_url) == database_url
+
+
+def test_health_endpoint_checks_database(client):
+    response = client.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

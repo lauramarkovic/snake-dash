@@ -1,9 +1,11 @@
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 
-from sqlalchemy import JSON, BigInteger, ForeignKey, Integer, String, create_engine
+from sqlalchemy import JSON, BigInteger, ForeignKey, Integer, String, create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.engine.url import make_url
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import (
     DeclarativeBase,
     Mapped,
@@ -15,6 +17,15 @@ from sqlalchemy.pool import StaticPool
 
 
 DEFAULT_DATABASE_URL = "sqlite:///./snake_dash.db"
+
+
+def normalize_database_url(database_url: str) -> str:
+    """Use the installed Psycopg 3 driver for provider-supplied Postgres URLs."""
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql+psycopg://", 1)
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return database_url
 
 
 class Base(DeclarativeBase):
@@ -63,6 +74,7 @@ class ActiveGameRow(Base):
 
 
 def create_database_engine(database_url: str) -> Engine:
+    database_url = normalize_database_url(database_url)
     options: dict[str, object] = {}
     url = make_url(database_url)
     if url.get_backend_name() == "sqlite":
@@ -81,8 +93,25 @@ class Database:
             expire_on_commit=False,
         )
 
-    def create_tables(self) -> None:
-        Base.metadata.create_all(self.engine)
+    def create_tables(
+        self, *, max_attempts: int = 1, retry_delay_seconds: float = 1
+    ) -> None:
+        for attempt in range(1, max_attempts + 1):
+            try:
+                Base.metadata.create_all(self.engine)
+                return
+            except OperationalError:
+                if attempt == max_attempts:
+                    raise
+                time.sleep(retry_delay_seconds)
+
+    def is_ready(self) -> bool:
+        try:
+            with self.engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            return True
+        except SQLAlchemyError:
+            return False
 
     @contextmanager
     def session(self) -> Iterator[Session]:

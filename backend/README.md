@@ -7,7 +7,7 @@ by default, while the data layer remains portable to other SQL databases.
 
 ```bash
 uv sync
-uv run uvicorn main:app --reload
+SEED_DATABASE=true uv run uvicorn main:app --reload
 ```
 
 Set `DATABASE_URL` to choose the database. The default is:
@@ -35,7 +35,7 @@ Primary endpoints:
 - `POST /api/leaderboard`
 - `GET /api/games/active`
 
-Seeded credentials:
+When `SEED_DATABASE=true`, these demo credentials are created:
 
 - `demo` / `demo`
 - `ada` / `ada`
@@ -69,5 +69,6 @@ docker run -it \
     -p 8000:8000 \
     -e DATABASE_URL=sqlite:///./snake.db \
     -e DEBUG=true \
+    -e SEED_DATABASE=true \
     snake-arena
 ```

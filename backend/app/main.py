@@ -25,6 +25,16 @@ def environment_flag(name: str, *, default: bool = False) -> bool:
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def environment_int(name: str, *, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer") from exc
+
+
 def create_app(
     *,
     seed: bool = True,
@@ -35,7 +45,12 @@ def create_app(
         "DATABASE_URL", DEFAULT_DATABASE_URL
     )
     database = Database(resolved_database_url)
-    database.create_tables()
+    database.create_tables(
+        max_attempts=environment_int("DATABASE_CONNECT_MAX_ATTEMPTS", default=10),
+        retry_delay_seconds=environment_int(
+            "DATABASE_CONNECT_RETRY_SECONDS", default=2
+        ),
+    )
     store = DatabaseStore(database, seed=seed)
 
     @asynccontextmanager
@@ -97,6 +112,13 @@ def create_app(
     api.state.store = store
     api.add_exception_handler(HTTPException, http_exception_handler)
     api.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+    @api.get("/health", include_in_schema=False)
+    async def health() -> dict[str, str]:
+        if not database.is_ready():
+            raise HTTPException(status_code=503, detail="Database is unavailable")
+        return {"status": "ok"}
+
     api.include_router(auth.router)
     api.include_router(scores.router)
     api.include_router(games.router)
@@ -112,4 +134,4 @@ def create_app(
     return app
 
 
-app = create_app()
+app = create_app(seed=environment_flag("SEED_DATABASE"))
