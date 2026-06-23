@@ -20,6 +20,17 @@ Railway's injected `PORT`.
    `DATABASE_URL`.
 6. In the application service's **Settings > Networking** section, generate a
    public domain.
+7. In the application service's deployment settings, enable **Wait for CI**.
+
+The GitHub Actions workflow runs frontend and backend tests in parallel,
+followed by backend integration tests and a production deployment gate.
+Railway's GitHub App starts the deployment only after the complete workflow
+succeeds on `main`. Pull requests run the tests but do not deploy.
+
+No Railway API token or deployment user is stored in GitHub. Railway does not
+currently support exchanging a GitHub Actions OIDC token for Railway
+credentials, so deployment is delegated to its installed GitHub App instead
+of using a long-lived user or project token.
 
 No Railway volume is required for the application. Railway manages the
 PostgreSQL service's persistent storage.
