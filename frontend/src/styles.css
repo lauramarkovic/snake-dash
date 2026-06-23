@@ -204,6 +204,23 @@
     box-shadow: 0 0 12px var(--color-neon);
   }
 
+  .game-focus:fullscreen {
+    overflow: auto;
+    align-content: start;
+    width: 100%;
+    min-height: 100%;
+    padding: 1.5rem;
+    background:
+      radial-gradient(circle at 50% 0%, oklch(0.55 0.16 205 / 12%), transparent 30rem),
+      var(--color-background);
+  }
+
+  .game-focus:fullscreen > .arena-panel:first-child {
+    width: 100%;
+    max-width: min(78vh, 62rem);
+    margin-inline: auto;
+  }
+
   @media (min-width: 640px) {
     .page-shell {
       padding-inline: 1.5rem;
