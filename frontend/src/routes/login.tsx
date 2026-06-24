@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Activity, ArrowRight, LockKeyhole, UserRound } from "lucide-react";
 import { ArenaPanel } from "@/components/ArenaPanel";
+import { useI18n } from "@/lib/i18n";
 
 const search = z.object({ redirect: z.string().optional() });
 
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const { login } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const { redirect } = useSearch({ from: "/login" });
   const [username, setUsername] = useState("demo");
@@ -46,16 +48,14 @@ function LoginPage() {
           <div className="mb-5 grid size-12 place-items-center rounded-xl border border-primary/30 bg-primary/10 text-neon">
             <Activity />
           </div>
-          <p className="eyebrow">Player access</p>
-          <h1 className="font-display mt-2 text-3xl font-black">Welcome back</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Log in to continue your run up the rankings.
-          </p>
+          <p className="eyebrow">{t.auth.playerAccess}</p>
+          <h1 className="font-display mt-2 text-3xl font-black">{t.auth.welcomeBack}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t.auth.loginIntro}</p>
         </div>
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="space-y-1.5">
             <Label htmlFor="u" className="flex items-center gap-2">
-              <UserRound className="size-3.5 text-electric" /> Username
+              <UserRound className="size-3.5 text-electric" /> {t.auth.username}
             </Label>
             <Input
               id="u"
@@ -66,7 +66,7 @@ function LoginPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="p" className="flex items-center gap-2">
-              <LockKeyhole className="size-3.5 text-electric" /> Password
+              <LockKeyhole className="size-3.5 text-electric" /> {t.auth.password}
             </Label>
             <Input
               id="p"
@@ -79,18 +79,18 @@ function LoginPage() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="w-full" disabled={busy}>
             {busy ? (
-              "Logging in…"
+              t.auth.loggingIn
             ) : (
               <>
-                Enter arena <ArrowRight />
+                {t.auth.enterArena} <ArrowRight />
               </>
             )}
           </Button>
         </form>
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          No account?{" "}
+          {t.auth.noAccount}{" "}
           <Link to="/signup" className="font-semibold text-electric hover:underline">
-            Create one
+            {t.auth.createOne}
           </Link>
         </p>
       </ArenaPanel>

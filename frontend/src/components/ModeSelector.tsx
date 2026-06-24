@@ -1,5 +1,6 @@
 import { Orbit, Shield } from "lucide-react";
 import type { Mode } from "@/lib/snake-engine";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type ModeSelectorProps = {
@@ -9,20 +10,22 @@ type ModeSelectorProps = {
 };
 
 const MODES = [
-  { value: "walls" as const, label: "Classic", description: "Walls end the run", icon: Shield },
-  { value: "passthrough" as const, label: "Wrap", description: "Edges loop around", icon: Orbit },
+  { value: "walls" as const, icon: Shield },
+  { value: "passthrough" as const, icon: Orbit },
 ];
 
 export function ModeSelector({ value, onChange, compact = false }: ModeSelectorProps) {
+  const { t } = useI18n();
   return (
     <div
       className={cn("grid gap-2", compact ? "grid-cols-2" : "sm:grid-cols-2")}
       role="radiogroup"
-      aria-label="Game mode"
+      aria-label={t.common.mode}
     >
       {MODES.map((mode) => {
         const selected = mode.value === value;
         const Icon = mode.icon;
+        const copy = t.modes[mode.value];
         return (
           <button
             key={mode.value}
@@ -47,11 +50,11 @@ export function ModeSelector({ value, onChange, compact = false }: ModeSelectorP
             </span>
             <span className="min-w-0">
               <span className={cn("block text-sm font-bold", selected && "text-neon")}>
-                {mode.label}
+                {copy.label}
               </span>
               {!compact && (
                 <span className="block truncate text-xs text-muted-foreground">
-                  {mode.description}
+                  {copy.description}
                 </span>
               )}
             </span>

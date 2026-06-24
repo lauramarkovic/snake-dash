@@ -16,6 +16,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { ModeSelector } from "@/components/ModeSelector";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
+import { useI18n } from "@/lib/i18n";
 import type { Mode } from "@/lib/snake-engine";
 import { getService } from "@/services";
 import type { ScoreEntry } from "@/services/types";
@@ -29,6 +30,7 @@ type TimeFilter = "all" | "day" | "week";
 
 function LeaderboardPage() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("walls");
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("all");
   const [scores, setScores] = useState<ScoreEntry[]>([]);
@@ -61,11 +63,9 @@ function LeaderboardPage() {
     <section className="page-shell space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Global standings</p>
-          <h1 className="font-display mt-2 text-3xl font-black">Arena rankings</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Compare runs, find your position, and chase the next score.
-          </p>
+          <p className="eyebrow">{t.leaderboard.globalStandings}</p>
+          <h1 className="font-display mt-2 text-3xl font-black">{t.leaderboard.arenaRankings}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t.leaderboard.intro}</p>
         </div>
         <div className="w-full sm:w-auto">
           <ModeSelector value={mode} onChange={setMode} compact />
@@ -85,14 +85,18 @@ function LeaderboardPage() {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {filter === "all" ? "All time" : filter === "week" ? "This week" : "Today"}
+              {filter === "all"
+                ? t.leaderboard.allTime
+                : filter === "week"
+                  ? t.leaderboard.thisWeek
+                  : t.leaderboard.today}
             </button>
           ))}
         </div>
         {currentUserRank >= 0 && (
           <span className="flex items-center gap-2 text-xs text-muted-foreground">
-            <UserRound className="size-4 text-electric" /> Your rank is{" "}
-            <strong className="text-neon">#{currentUserRank + 1}</strong>
+            <UserRound className="size-4 text-electric" />{" "}
+            <strong className="text-neon">{t.leaderboard.yourRank(currentUserRank + 1)}</strong>
           </span>
         )}
       </div>
@@ -118,7 +122,7 @@ function LeaderboardPage() {
                   <div className="min-w-0">
                     <p className="truncate font-bold">{score.username}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {relativeTime(score.createdAt)}
+                      {relativeTime(score.createdAt, t)}
                     </p>
                   </div>
                 </div>
@@ -141,21 +145,23 @@ function LeaderboardPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-5 py-4">
           <div className="flex items-center gap-2">
             <Trophy className="size-4 text-neon" />
-            <h2 className="font-display text-sm font-bold uppercase tracking-wider">Top players</h2>
+            <h2 className="font-display text-sm font-bold uppercase tracking-wider">
+              {t.leaderboard.topPlayers}
+            </h2>
           </div>
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Users className="size-3.5" /> {filteredScores.length} ranked
+            <Users className="size-3.5" /> {t.leaderboard.ranked(filteredScores.length)}
           </span>
         </div>
         {filteredScores.length === 0 && (
           <EmptyState
             icon={CalendarDays}
-            title="No scores in this period"
-            description="Change the time filter or become the first player on this board."
+            title={t.leaderboard.noScores}
+            description={t.leaderboard.noScoresDescription}
             action={
               <Button asChild>
                 <Link to="/play">
-                  <Swords /> Start a challenge
+                  <Swords /> {t.leaderboard.startChallenge}
                 </Link>
               </Button>
             }
@@ -186,12 +192,12 @@ function LeaderboardPage() {
                     {score.username}
                     {isCurrentUser && (
                       <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-[0.625rem] uppercase tracking-wider text-neon">
-                        You
+                        {t.common.you}
                       </span>
                     )}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {relativeTime(score.createdAt)}
+                    {relativeTime(score.createdAt, t)}
                   </p>
                 </div>
               </div>
@@ -199,8 +205,8 @@ function LeaderboardPage() {
                 <span className="font-display font-bold">{score.score.toLocaleString()}</span>
                 {!isCurrentUser && (
                   <Button asChild size="sm" variant="ghost">
-                    <Link to="/play" title={`Challenge ${score.username}'s score`}>
-                      Challenge <ArrowRight />
+                    <Link to="/play" title={t.leaderboard.challengeTitle(score.username)}>
+                      {t.leaderboard.challenge} <ArrowRight />
                     </Link>
                   </Button>
                 )}
@@ -221,13 +227,13 @@ function PlayerAvatar({ username }: { username: string }) {
   );
 }
 
-function relativeTime(timestamp: number) {
+function relativeTime(timestamp: number, t: ReturnType<typeof useI18n>["t"]) {
   const seconds = Math.max(1, Math.floor((Date.now() - timestamp) / 1_000));
-  if (seconds < 60) return "just now";
+  if (seconds < 60) return t.leaderboard.justNow;
   const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 60) return t.leaderboard.minutesAgo(minutes);
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t.leaderboard.hoursAgo(hours);
   const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  return t.leaderboard.daysAgo(days);
 }

@@ -14,16 +14,18 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { LanguageProvider, languageOptions, useI18n } from "@/lib/i18n";
 
 function NotFoundComponent() {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="arena-panel max-w-md rounded-2xl p-10 text-center">
-        <p className="eyebrow">Lost signal</p>
+        <p className="eyebrow">{t.root.lostSignal}</p>
         <h1 className="font-display neon-text mt-3 text-7xl font-black">404</h1>
-        <p className="mt-3 text-sm text-muted-foreground">This arena could not be found.</p>
+        <p className="mt-3 text-sm text-muted-foreground">{t.root.notFound}</p>
         <Button asChild className="mt-6">
-          <Link to="/">Return home</Link>
+          <Link to="/">{t.root.returnHome}</Link>
         </Button>
       </div>
     </div>
@@ -32,14 +34,15 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
+  const { t } = useI18n();
   useEffect(() => {
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="arena-panel max-w-md rounded-2xl p-8 text-center space-y-4">
-        <p className="eyebrow">System error</p>
-        <h1 className="font-display text-xl font-bold">Something went wrong</h1>
+        <p className="eyebrow">{t.root.systemError}</p>
+        <h1 className="font-display text-xl font-bold">{t.root.somethingWrong}</h1>
         <p className="text-sm text-muted-foreground">{error.message}</p>
         <Button
           onClick={() => {
@@ -47,7 +50,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
             reset();
           }}
         >
-          Try again
+          {t.root.tryAgain}
         </Button>
       </div>
     </div>
@@ -92,24 +95,27 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <div className="min-h-screen flex flex-col text-foreground">
-          <Header />
-          <main className="flex-1">
-            <Outlet />
-          </main>
-        </div>
-      </AuthProvider>
+      <LanguageProvider>
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col text-foreground">
+            <Header />
+            <main className="flex-1">
+              <Outlet />
+            </main>
+          </div>
+        </AuthProvider>
+      </LanguageProvider>
     </QueryClientProvider>
   );
 }
 
 function Header() {
   const { user, logout } = useAuth();
+  const { language, setLanguage, t } = useI18n();
   const navItems = [
-    { to: "/play" as const, label: "Play", icon: Gamepad2 },
-    { to: "/leaderboard" as const, label: "Ranks", icon: Trophy },
-    { to: "/watch" as const, label: "Watch", icon: Eye },
+    { to: "/play" as const, label: t.nav.play, icon: Gamepad2 },
+    { to: "/leaderboard" as const, label: t.nav.ranks, icon: Trophy },
+    { to: "/watch" as const, label: t.nav.watch, icon: Eye },
   ];
 
   return (
@@ -137,21 +143,41 @@ function Header() {
           ))}
         </nav>
         <div className="order-2 flex items-center gap-2 sm:order-3">
+          <div
+            className="flex rounded-lg border border-border/70 bg-card/45 p-0.5"
+            aria-label={t.language}
+          >
+            {languageOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setLanguage(option.value)}
+                className={`rounded-md px-2 py-1 text-xs font-bold transition-colors ${
+                  language === option.value
+                    ? "bg-secondary text-neon"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={language === option.value}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           {user ? (
             <>
               <span className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
                 <UserRound className="size-4 text-electric" />
                 {user.username}
               </span>
-              <Button size="sm" variant="ghost" onClick={logout} aria-label="Log out">
+              <Button size="sm" variant="ghost" onClick={logout} aria-label={t.nav.logout}>
                 <LogOut />
-                <span className="hidden sm:inline">Log out</span>
+                <span className="hidden sm:inline">{t.nav.logout}</span>
               </Button>
             </>
           ) : (
             <Button asChild size="sm" variant="outline">
               <Link to="/login">
-                <LogIn /> Log in
+                <LogIn /> {t.nav.login}
               </Link>
             </Button>
           )}

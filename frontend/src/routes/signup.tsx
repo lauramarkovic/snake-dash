@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Activity, ArrowRight, LockKeyhole, UserRound } from "lucide-react";
 import { ArenaPanel } from "@/components/ArenaPanel";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/signup")({
   head: () => ({ meta: [{ title: "Sign up — Snake Dash" }] }),
@@ -14,6 +15,7 @@ export const Route = createFileRoute("/signup")({
 
 function SignupPage() {
   const { signup } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -41,16 +43,14 @@ function SignupPage() {
           <div className="mb-5 grid size-12 place-items-center rounded-xl border border-primary/30 bg-primary/10 text-neon">
             <Activity />
           </div>
-          <p className="eyebrow">New challenger</p>
-          <h1 className="font-display mt-2 text-3xl font-black">Create your player</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Join the arena and start building your record.
-          </p>
+          <p className="eyebrow">{t.auth.newChallenger}</p>
+          <h1 className="font-display mt-2 text-3xl font-black">{t.auth.createPlayer}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t.auth.signupIntro}</p>
         </div>
         <form onSubmit={onSubmit} className="space-y-5">
           <div className="space-y-1.5">
             <Label htmlFor="u" className="flex items-center gap-2">
-              <UserRound className="size-3.5 text-electric" /> Username
+              <UserRound className="size-3.5 text-electric" /> {t.auth.username}
             </Label>
             <Input
               id="u"
@@ -61,7 +61,7 @@ function SignupPage() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="p" className="flex items-center gap-2">
-              <LockKeyhole className="size-3.5 text-electric" /> Password
+              <LockKeyhole className="size-3.5 text-electric" /> {t.auth.password}
             </Label>
             <Input
               id="p"
@@ -74,18 +74,18 @@ function SignupPage() {
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" size="lg" className="w-full" disabled={busy}>
             {busy ? (
-              "Creating…"
+              t.auth.creating
             ) : (
               <>
-                Join the arena <ArrowRight />
+                {t.auth.joinArena} <ArrowRight />
               </>
             )}
           </Button>
         </form>
         <p className="mt-5 text-center text-sm text-muted-foreground">
-          Already registered?{" "}
+          {t.auth.alreadyRegistered}{" "}
           <Link to="/login" className="font-semibold text-electric hover:underline">
-            Log in
+            {t.nav.login}
           </Link>
         </p>
       </ArenaPanel>

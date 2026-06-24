@@ -42,6 +42,7 @@ import {
   getSpeedProgress,
   getTickMs,
 } from "@/lib/game-feel";
+import { useI18n } from "@/lib/i18n";
 import {
   createGame,
   setDirection,
@@ -100,13 +101,17 @@ const ARENA_STEP = 40;
 
 function PlayPage() {
   const { loading, user } = useRequireAuth();
+  const { t } = useI18n();
   if (loading || !user)
-    return <div className="page-shell text-center text-muted-foreground">Loading arena…</div>;
+    return (
+      <div className="page-shell text-center text-muted-foreground">{t.common.loadingArena}</div>
+    );
   return <Game />;
 }
 
 function Game() {
   const { user } = useAuth();
+  const { t } = useI18n();
   const [mode, setMode] = useState<Mode>("walls");
   const [state, setState] = useState<GameState>(() => createGame("walls"));
   const [running, setRunning] = useState(false);
@@ -140,6 +145,7 @@ function Game() {
   const dailyChallenge = getDailyChallenge();
   const dailyCompleted = dailyCompletions.has(dailyChallenge.id);
   const achievements = achievementCatalog(achievementIds);
+  const dailyModeLabel = t.modes[dailyChallenge.mode].label;
 
   const playSound = useCallback(
     (sound: GameSound) => {
@@ -422,30 +428,30 @@ function Game() {
   );
 
   const shareResult = useCallback(async () => {
-    const text = `I scored ${state.score.toLocaleString()} in ${mode === "walls" ? "Classic" : "Wrap"} mode on Snake Dash. Can you beat it?`;
-    const shareData = { title: "Snake Dash result", text, url: window.location.origin };
+    const text = t.play.shareText(state.score.toLocaleString(), t.modes[mode].label);
+    const shareData = { title: t.play.shareTitle, text, url: window.location.origin };
     try {
       if (navigator.share) {
         await navigator.share(shareData);
-        setShareStatus("Shared");
+        setShareStatus(t.play.shared);
       } else {
         await navigator.clipboard.writeText(`${text} ${window.location.origin}`);
-        setShareStatus("Copied");
+        setShareStatus(t.play.copied);
       }
     } catch {
       setShareStatus("");
     }
-  }, [mode, state.score]);
+  }, [mode, state.score, t]);
 
   return (
     <section className="page-shell max-w-[96rem] space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Player: {user?.username}</p>
-          <h1 className="font-display mt-2 text-3xl font-black">Enter the arena</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Use arrow keys or WASD to move · Space to pause
+          <p className="eyebrow">
+            {t.play.player} {user?.username}
           </p>
+          <h1 className="font-display mt-2 text-3xl font-black">{t.play.enterArena}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t.play.controlsHint}</p>
         </div>
         <div className="w-full sm:w-auto">
           <ModeSelector value={mode} onChange={selectMode} compact />
@@ -458,10 +464,10 @@ function Game() {
       >
         <ArenaPanel className="p-3 sm:p-5">
           <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <HudItem label="Score" value={state.score.toLocaleString()} accent />
-            <HudItem label="Combo" value={combo > 1 ? `×${combo}` : "—"} />
-            <HudItem label="Speed" value={`Lv ${speedLevel}`} />
-            <HudItem label="Time" value={formatTime(elapsedMs)} />
+            <HudItem label={t.common.score} value={state.score.toLocaleString()} accent />
+            <HudItem label={t.common.combo} value={combo > 1 ? `x${combo}` : "-"} />
+            <HudItem label={t.common.speed} value={`${t.common.lv} ${speedLevel}`} />
+            <HudItem label={t.common.time} value={formatTime(elapsedMs)} />
           </div>
 
           <div
@@ -479,7 +485,7 @@ function Game() {
               <div className="absolute left-3 top-3 z-[5] w-32 rounded-xl border border-warning/30 bg-background/80 p-3 backdrop-blur">
                 <div className="flex items-center justify-between">
                   <span className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground">
-                    Combo
+                    {t.common.combo}
                   </span>
                   <strong className="font-display text-warning">×{combo}</strong>
                 </div>
@@ -492,7 +498,7 @@ function Game() {
 
             {milestone !== null && (
               <div className="milestone-pop pointer-events-none absolute inset-x-4 top-1/4 z-20 text-center">
-                <p className="eyebrow">Score milestone</p>
+                <p className="eyebrow">{t.play.scoreMilestone}</p>
                 <p className="font-display neon-text mt-2 text-4xl font-black">
                   {milestone.toLocaleString()}
                 </p>
@@ -501,51 +507,51 @@ function Game() {
 
             {!hasStarted && state.alive && (
               <BoardOverlay
-                eyebrow={mode === "walls" ? "Classic mode" : "Wrap mode"}
-                title="Ready?"
-                description="Choose your opening move, then start the run."
+                eyebrow={t.modes[mode].modeLabel}
+                title={t.play.readyTitle}
+                description={t.play.readyDescription}
               >
                 <Button size="lg" onClick={() => startRun(mode)}>
-                  <Play /> Start run
+                  <Play /> {t.play.startRun}
                 </Button>
               </BoardOverlay>
             )}
 
             {countdown !== null && (
               <BoardOverlay
-                eyebrow="Get ready"
+                eyebrow={t.play.getReady}
                 title={String(countdown)}
-                description="The run is about to begin."
+                description={t.play.countdownDescription}
               />
             )}
 
             {hasStarted && !running && countdown === null && state.alive && (
               <BoardOverlay
-                eyebrow="Run paused"
-                title="Paused"
-                description="Take a breath. The grid will wait."
+                eyebrow={t.play.runPaused}
+                title={t.play.paused}
+                description={t.play.pausedDescription}
               >
                 <Button size="lg" onClick={toggleRunning}>
-                  <Play /> Resume run
+                  <Play /> {t.play.resumeRun}
                 </Button>
               </BoardOverlay>
             )}
 
             {!state.alive && (
               <BoardOverlay
-                eyebrow={newBest ? "New personal best" : "Run complete"}
-                title="Game over"
-                description={`Final score ${state.score.toLocaleString()} · Length ${state.snake.length}`}
+                eyebrow={newBest ? t.play.newPersonalBest : t.play.runComplete}
+                title={t.play.gameOver}
+                description={t.play.finalScore(state.score.toLocaleString(), state.snake.length)}
               >
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button size="lg" onClick={() => startRun(mode)}>
-                    <RotateCcw /> Play again
+                    <RotateCcw /> {t.play.playAgain}
                   </Button>
                   <Button variant="outline" size="lg" onClick={() => selectMode(mode)}>
-                    Back to ready
+                    {t.play.backToReady}
                   </Button>
                   <Button variant="outline" size="lg" onClick={shareResult}>
-                    <Share2 /> {shareStatus || "Share result"}
+                    <Share2 /> {shareStatus || t.play.shareResult}
                   </Button>
                 </div>
               </BoardOverlay>
@@ -559,7 +565,7 @@ function Game() {
                   running && state.alive ? "status-dot" : "size-2 rounded-full bg-muted-foreground"
                 }
               />
-              {runStatus({ state, running, countdown, hasStarted })}
+              {runStatus({ state, running, countdown, hasStarted }, t)}
             </div>
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button
@@ -567,7 +573,7 @@ function Game() {
                 variant="ghost"
                 onClick={() => resizeArena(-ARENA_STEP)}
                 disabled={arenaSize <= MIN_ARENA_SIZE}
-                aria-label="Zoom arena out"
+                aria-label={t.play.zoomOut}
               >
                 <ZoomOut />
               </Button>
@@ -577,7 +583,7 @@ function Game() {
                   min={MIN_ARENA_SIZE}
                   max={MAX_ARENA_SIZE}
                   step={ARENA_STEP}
-                  aria-label="Arena size"
+                  aria-label={t.play.arenaSize}
                   onValueChange={([size]) => setArenaSize(size)}
                 />
               </div>
@@ -586,12 +592,12 @@ function Game() {
                 variant="ghost"
                 onClick={() => resizeArena(ARENA_STEP)}
                 disabled={arenaSize >= MAX_ARENA_SIZE}
-                aria-label="Zoom arena in"
+                aria-label={t.play.zoomIn}
               >
                 <ZoomIn />
               </Button>
               <Button size="sm" variant="outline" onClick={fitArenaToWindow}>
-                Fit window
+                {t.play.fitWindow}
               </Button>
               <span className="min-w-14 text-right font-mono text-xs text-muted-foreground">
                 {arenaSize}px
@@ -599,7 +605,7 @@ function Game() {
             </div>
             <Button size="sm" variant="ghost" onClick={toggleFullscreen}>
               {isFullscreen ? <Minimize2 /> : <Maximize2 />}
-              {isFullscreen ? "Exit focus" : "Focus mode"}
+              {isFullscreen ? t.play.exitFocus : t.play.focusMode}
             </Button>
           </div>
         </ArenaPanel>
@@ -607,21 +613,36 @@ function Game() {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
             <StatCard
-              label="Score"
+              label={t.common.score}
               value={state.score.toLocaleString()}
               icon={Trophy}
               tone="neon"
             />
-            <StatCard label="Length" value={state.snake.length} icon={Ruler} tone="electric" />
-            <StatCard label="Best score" value={bestScore.toLocaleString()} icon={Sparkles} />
-            <StatCard label="Speed" value={`Level ${speedLevel}`} icon={Gauge} />
+            <StatCard
+              label={t.common.length}
+              value={state.snake.length}
+              icon={Ruler}
+              tone="electric"
+            />
+            <StatCard
+              label={t.common.bestScore}
+              value={bestScore.toLocaleString()}
+              icon={Sparkles}
+            />
+            <StatCard
+              label={t.common.speed}
+              value={`${t.common.level} ${speedLevel}`}
+              icon={Gauge}
+            />
           </div>
 
           <ArenaPanel className="p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="eyebrow">Daily challenge</p>
-                <p className="mt-2 text-sm font-bold">{dailyChallenge.title}</p>
+                <p className="eyebrow">{t.play.dailyChallenge}</p>
+                <p className="mt-2 text-sm font-bold">
+                  {t.progress.dailyTitle(dailyChallenge.target, dailyModeLabel)}
+                </p>
               </div>
               {dailyCompleted ? (
                 <CheckCircle2 className="size-6 text-neon" />
@@ -630,7 +651,7 @@ function Game() {
               )}
             </div>
             <p className="mt-2 text-xs leading-5 text-muted-foreground">
-              {dailyChallenge.description}
+              {t.progress.dailyDescription(dailyChallenge.target, dailyModeLabel)}
             </p>
             <Progress
               value={
@@ -649,7 +670,7 @@ function Game() {
                 className="mt-4 w-full"
                 onClick={() => selectMode(dailyChallenge.mode)}
               >
-                Switch to {dailyChallenge.mode === "walls" ? "Classic" : "Wrap"}
+                {t.play.switchTo(dailyModeLabel)}
               </Button>
             )}
           </ArenaPanel>
@@ -658,7 +679,7 @@ function Game() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Medal className="size-4 text-electric" />
-                <p className="text-sm font-bold">Achievements</p>
+                <p className="text-sm font-bold">{t.play.achievements}</p>
               </div>
               <span className="font-display text-xs text-neon">
                 {achievements.filter((achievement) => achievement.unlocked).length}/
@@ -681,9 +702,12 @@ function Game() {
                     <LockKeyhole className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
                   )}
                   <div>
-                    <p className="text-xs font-bold">{achievement.title}</p>
+                    <p className="text-xs font-bold">
+                      {t.progress.achievements[achievement.id]?.title ?? achievement.title}
+                    </p>
                     <p className="mt-1 text-[0.6875rem] leading-4 text-muted-foreground">
-                      {achievement.description}
+                      {t.progress.achievements[achievement.id]?.description ??
+                        achievement.description}
                     </p>
                   </div>
                 </div>
@@ -694,10 +718,8 @@ function Game() {
           <ArenaPanel className="p-5">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="eyebrow">Speed level {speedLevel}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {tickMs}ms per move · faster every 70 points
-                </p>
+                <p className="eyebrow">{t.play.speedLevel(speedLevel)}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{t.play.speedProgress(tickMs)}</p>
               </div>
               <Waves className="size-5 text-electric" />
             </div>
@@ -705,10 +727,10 @@ function Game() {
           </ArenaPanel>
 
           <ArenaPanel className="p-5">
-            <p className="eyebrow">Run controls</p>
+            <p className="eyebrow">{t.play.runControls}</p>
             <div className="mt-4 grid gap-2">
               <Button onClick={() => startRun(mode)}>
-                <RotateCcw /> {hasStarted ? "Restart run" : "Start run"}
+                <RotateCcw /> {hasStarted ? t.play.restartRun : t.play.startRun}
               </Button>
               <Button
                 variant="outline"
@@ -717,11 +739,11 @@ function Game() {
               >
                 {running ? (
                   <>
-                    <Pause /> Pause
+                    <Pause /> {t.play.pause}
                   </>
                 ) : (
                   <>
-                    <Play /> Resume
+                    <Play /> {t.play.resume}
                   </>
                 )}
               </Button>
@@ -731,18 +753,18 @@ function Game() {
           <ArenaPanel className="p-5">
             <div className="flex items-center gap-2">
               <AudioLines className="size-4 text-electric" />
-              <p className="text-sm font-bold">Game feel</p>
+              <p className="text-sm font-bold">{t.play.gameFeel}</p>
             </div>
             <div className="mt-4 space-y-4">
               <PreferenceRow
                 icon={preferences.sound ? Volume2 : VolumeX}
-                label="Sound effects"
+                label={t.play.soundEffects}
                 checked={preferences.sound}
                 onCheckedChange={(sound) => setPreferences((current) => ({ ...current, sound }))}
               />
               <div className="space-y-2">
                 <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>Volume</span>
+                  <span>{t.play.volume}</span>
                   <span>{Math.round(preferences.volume * 100)}%</span>
                 </div>
                 <Slider
@@ -757,7 +779,7 @@ function Game() {
               </div>
               <PreferenceRow
                 icon={Sparkles}
-                label="Reduced motion"
+                label={t.play.reducedMotion}
                 checked={preferences.reducedMotion}
                 onCheckedChange={(reducedMotion) =>
                   setPreferences((current) => ({ ...current, reducedMotion }))
@@ -769,20 +791,20 @@ function Game() {
           <ArenaPanel className="p-5">
             <div className="flex items-center gap-2">
               <Clock3 className="size-4 text-electric" />
-              <p className="text-sm font-bold">Controls</p>
+              <p className="text-sm font-bold">{t.play.controls}</p>
             </div>
             <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
               <span>
                 <kbd className="mr-1 rounded border border-border bg-background/60 px-1.5 py-1 text-foreground">
                   WASD
                 </kbd>{" "}
-                move
+                {t.play.move}
               </span>
               <span>
                 <kbd className="mr-1 rounded border border-border bg-background/60 px-1.5 py-1 text-foreground">
                   SPACE
                 </kbd>{" "}
-                pause
+                {t.play.pause.toLowerCase()}
               </span>
             </div>
           </ArenaPanel>
@@ -857,21 +879,24 @@ function PreferenceRow({
   );
 }
 
-function runStatus({
-  state,
-  running,
-  countdown,
-  hasStarted,
-}: {
-  state: GameState;
-  running: boolean;
-  countdown: number | null;
-  hasStarted: boolean;
-}) {
-  if (!state.alive) return "Run ended";
-  if (countdown !== null) return "Starting";
-  if (!hasStarted) return "Ready";
-  return running ? "Run active" : "Run paused";
+function runStatus(
+  {
+    state,
+    running,
+    countdown,
+    hasStarted,
+  }: {
+    state: GameState;
+    running: boolean;
+    countdown: number | null;
+    hasStarted: boolean;
+  },
+  t: ReturnType<typeof useI18n>["t"],
+) {
+  if (!state.alive) return t.play.status.ended;
+  if (countdown !== null) return t.play.status.starting;
+  if (!hasStarted) return t.play.status.ready;
+  return running ? t.play.status.active : t.play.status.paused;
 }
 
 function formatTime(milliseconds: number) {
